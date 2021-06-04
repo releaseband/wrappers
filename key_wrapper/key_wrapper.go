@@ -27,11 +27,20 @@ func makePostfixes(count int) []string {
 	return postfixes
 }
 
-func NewKeyWrapper(slotsCount int) *KeyWrapper {
-	return &KeyWrapper{
-		shardsCount: slotsCount,
-		postfixes:   makePostfixes(slotsCount),
-	}
+func (b *KeyWrapper) setCount(count int) {
+	b.shardsCount = count
+	b.postfixes = makePostfixes(count)
+}
+
+func NewKeyWrapper(count int) *KeyWrapper {
+	w := &KeyWrapper{}
+	w.setCount(count)
+
+	return w
+}
+
+func (b *KeyWrapper) ResetShardsCount(count int) {
+	b.setCount(count)
 }
 
 func (b *KeyWrapper) WrapKey(key string) string {
