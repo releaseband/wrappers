@@ -8,53 +8,44 @@ const (
 	defaultPostfix = ":1"
 )
 
-type KeyWrapper struct {
+type keyWrapper struct {
 	i           int
 	shardsCount int
-	postfixes   []string
 }
 
-func getPostfix(i int) string {
-	return ":" + strconv.Itoa(i)
-}
-
-func makePostfixes(count int) []string {
-	postfixes := make([]string, count)
-	for i := 0; i < count; i++ {
-		postfixes[i] = getPostfix(i+1)
-	}
-
-	return postfixes
-}
-
-func (b *KeyWrapper) setCount(count int) {
+func (b *keyWrapper) setCount(count int) {
 	b.shardsCount = count
-	b.postfixes = makePostfixes(count)
 }
 
-func NewKeyWrapper(count int) *KeyWrapper {
-	w := &KeyWrapper{}
+func newKeyWrapper(count int) *keyWrapper {
+	w := &keyWrapper{}
 	w.setCount(count)
 
 	return w
 }
 
-func (b *KeyWrapper) ResetShardsCount(count int) {
+func (b *keyWrapper) ResetShardsCount(count int) {
 	b.setCount(count)
 }
 
-func (b *KeyWrapper) WrapKey(key string) string {
-	var postfix string
-	if b.shardsCount > 1 {
-		b.i++
-		if b.i >= b.shardsCount {
-			b.i = 0
-		}
+func (b *keyWrapper) incrementI() int {
+	b.i++
 
-		postfix = b.postfixes[b.i]
-	} else {
-		postfix = defaultPostfix
+	if b.i > b.shardsCount {
+		b.i = 1
 	}
 
-	return key + postfix
+	return b.i
+}
+
+func (b *keyWrapper) makePostfix() string {
+	if b.shardsCount > 1 {
+		return ":" + strconv.Itoa(b.incrementI())
+	}
+
+	return defaultPostfix
+}
+
+func (b *keyWrapper) WrapKey(key string) string {
+	return key + b.makePostfix()
 }
