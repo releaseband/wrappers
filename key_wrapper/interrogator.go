@@ -3,7 +3,6 @@ package key_wrapper
 import "time"
 
 type Config struct {
-	ErrorHandler   func(mess string, err error)
 	GetShardsCount func() (int, error)
 	Factory        *Factory
 	Interval       time.Duration
@@ -20,16 +19,14 @@ func (l *Interrogator) run(cfg *Config) {
 
 	for range t.C {
 		count, err := cfg.GetShardsCount()
-		if err != nil {
-			cfg.ErrorHandler("get shards count failed", err)
-		} else {
+		if err == nil {
 			cfg.Factory.updateShardsCount(count)
 		}
 	}
 }
 
 func RunInterrogator(cfg *Config) func() {
-	l :=  &Interrogator{}
+	l := &Interrogator{}
 	l.run(cfg)
 
 	return l.Stop
