@@ -27,7 +27,7 @@ func (l *Interrogator) run(cfg *Config) {
 
 func RunInterrogator(cfg *Config) func() {
 	l := &Interrogator{}
-	l.run(cfg)
+	go l.run(cfg)
 
 	return l.Stop
 }
