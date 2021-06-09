@@ -30,7 +30,6 @@ func TestFactory(t *testing.T) {
 		generalWrappers[i] = f.MakeKeyWrapper()
 	}
 
-
 	if f.generalWrappers == nil {
 		t.Fatal("generalWrappers should not be nil")
 	}
@@ -60,12 +59,12 @@ func TestFactory(t *testing.T) {
 		t.Fatal("onlyGrowingWrappers.wrappers len should be 3")
 	}
 
-	f.UpdateShardsCount(shardsCount - 1)
+	f.updateShardsCount(shardsCount - 1)
 	const key = "KEY"
 	expKey := key + ":1"
 
 	for _, generalW := range generalWrappers {
-		for i := 0; i < shardsCount - 1; i++ {
+		for i := 0; i < shardsCount-1; i++ {
 			generalW.WrapKey(key)
 		}
 
@@ -77,7 +76,7 @@ func TestFactory(t *testing.T) {
 
 	expKey = key + ":" + strconv.Itoa(shardsCount)
 	for _, onlyGrowing := range onlyGrowingWrappers {
-		for i := 0; i < shardsCount - 1; i++ {
+		for i := 0; i < shardsCount-1; i++ {
 			onlyGrowing.WrapKey(key)
 		}
 
