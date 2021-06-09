@@ -1,6 +1,8 @@
 package key_wrapper
 
-import "sync"
+import (
+	"sync"
+)
 
 type KeyWrapper interface {
 	WrapKey(key string) string
@@ -13,10 +15,10 @@ type Factory struct {
 	shardsCount         int
 }
 
-func NewFactory(slotsCount int) *Factory {
+func NewFactory(shardsCount int) *Factory {
 	return &Factory{
 		mu:          &sync.RWMutex{},
-		shardsCount: slotsCount,
+		shardsCount: shardsCount,
 	}
 }
 
@@ -55,6 +57,10 @@ func (f *Factory) getCount() int {
 }
 
 func (f *Factory) updateShardsCount(shardCount int) {
+	if shardCount == f.getCount() {
+		return
+	}
+
 	var decreased bool
 
 	f.mu.Lock()
@@ -69,11 +75,5 @@ func (f *Factory) updateShardsCount(shardCount int) {
 
 	if !decreased {
 		f.onlyGrowingWrappers.update(shardCount)
-	}
-}
-
-func (f *Factory) UpdateShardsCount(shardsCount int) {
-	if f.getCount() != shardsCount {
-		f.updateShardsCount(shardsCount)
 	}
 }
