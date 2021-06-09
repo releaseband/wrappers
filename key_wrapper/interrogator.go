@@ -3,10 +3,10 @@ package key_wrapper
 import "time"
 
 type Config struct {
-	ErrorHandler func(err error)
-	Target func() (int, error)
-	Factory *Factory
-	Interval time.Duration
+	ErrorHandler   func(mess string, err error)
+	GetShardsCount func() (int, error)
+	Factory        *Factory
+	Interval       time.Duration
 }
 
 type Interrogator struct {
@@ -19,11 +19,11 @@ func (l *Interrogator) run(cfg *Config) {
 	l.stopTick = t.Stop
 
 	for range t.C {
-		count, err := cfg.Target()
-		if err == nil {
-			cfg.Factory.updateShardsCount(count)
+		count, err := cfg.GetShardsCount()
+		if err != nil {
+			cfg.ErrorHandler("get shards count failed", err)
 		} else {
-			cfg.ErrorHandler(err)
+			cfg.Factory.updateShardsCount(count)
 		}
 	}
 }
