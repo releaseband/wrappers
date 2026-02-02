@@ -1,20 +1,19 @@
-package key_wrapper_test
+package example
 
 import (
 	"fmt"
 	"strconv"
-	"testing"
 	"time"
 
 	"github.com/releaseband/wrappers/key_wrapper"
 )
 
-// Test_Example demonstrates basic usage of the key_wrapper library
-func TestExample(t *testing.T) {
+// Example demonstrates basic usage of the key_wrapper library
+func Example() {
 	// Create factory with 3 shards
 	factory, err := key_wrapper.NewFactory(3)
 	if err != nil {
-		t.Fatalf("failed to create factory: %v", err)
+		panic("failed to create factory: " + err.Error())
 	}
 
 	// Create a key wrapper
@@ -34,14 +33,17 @@ func TestExample(t *testing.T) {
 		key := fmt.Sprintf("user:%d", i*100)
 		wrappedKey := wrapper.WrapKey(key)
 		expected := outputs[i-1]
+
 		if wrappedKey != expected {
-			t.Errorf("Expected %s, got %s", expected, wrappedKey)
+			panic(fmt.Sprintf("Expected %s, got %s", expected, wrappedKey))
 		}
+
+		fmt.Printf("%s -> %s \n", key, wrappedKey)
 	}
 }
 
-// Test_ExampleInterrogator demonstrates how to use the interrogator for dynamic shard count updates
-func Test_ExampleKeyWrapper(t *testing.T) {
+// ExampleInterrogator demonstrates how to use the interrogator for dynamic shard count updates
+func ExampleUpdateShards() {
 	// Create factory
 	const (
 		initialShards = 2
@@ -50,7 +52,7 @@ func Test_ExampleKeyWrapper(t *testing.T) {
 
 	factory, err := key_wrapper.NewFactory(initialShards)
 	if err != nil {
-		t.Fatalf("failed to create factory: %v", err)
+		panic("failed to create factory: " + err.Error())
 	}
 
 	// Mock function that returns current shard count
@@ -71,14 +73,14 @@ func Test_ExampleKeyWrapper(t *testing.T) {
 		Factory:        factory,
 		Interval:       100 * time.Millisecond, // Check every 100ms for demo
 		ErrorHandler: func(err error) {
-			t.Fatal("error in interrogator: ", err)
+			panic("error in interrogator: " + err.Error())
 		},
 	}
 
 	// Start interrogator in background
 	srv, err := key_wrapper.RunInterrogator(config)
 	if err != nil {
-		t.Fatalf("should be not error: %v", err)
+		panic("should be not error:" + err.Error())
 	}
 
 	defer srv.Stop() // Important: always stop the interrogator when done
@@ -96,22 +98,27 @@ func Test_ExampleKeyWrapper(t *testing.T) {
 		"key7:1",
 	}
 
-	t.Log("Before interrogator detects change:")
+	fmt.Println("Before interrogator detects change:")
+
 	for i, exp := range outputs {
 		if i == 3 {
 			time.Sleep(300 * time.Millisecond)
-			t.Log("After interrogator detects change to 4 shards:")
+			fmt.Println("After interrogator detects change from 2 to 4 shards")
 		}
 
-		got := wrapper.WrapKey("key" + strconv.Itoa(i+1))
+		key := "key" + strconv.Itoa(i+1)
+
+		got := wrapper.WrapKey(key)
 		if got != exp {
-			t.Fatalf("exp=%s, got=%s", exp, got)
+			fmt.Printf("exp=%s, got=%s \n", exp, got)
 		}
+
+		fmt.Printf("%s -> %s \n ", key, got)
 	}
 }
 
 // Test_ExampleOnlyGrowKeyWrapper demonstrates usage of only-growing key wrappers
-func Test_ExampleOnlyGrowKeyWrapper(t *testing.T) {
+func ExampleOnlyGrowKeyWrapper() {
 	// Create factory
 	const (
 		initialShards = 4
@@ -120,7 +127,7 @@ func Test_ExampleOnlyGrowKeyWrapper(t *testing.T) {
 
 	factory, err := key_wrapper.NewFactory(initialShards)
 	if err != nil {
-		t.Fatalf("should be not error: %v", err)
+		panic("failed to create factory: " + err.Error())
 	}
 
 	// Mock function that returns current shard count
@@ -142,14 +149,14 @@ func Test_ExampleOnlyGrowKeyWrapper(t *testing.T) {
 		Factory:        factory,
 		Interval:       100 * time.Millisecond, // Check every 100ms for demo
 		ErrorHandler: func(err error) {
-			t.Fatal("error in interrogator:", err)
+			panic("error in interrogator: " + err.Error())
 		},
 	}
 
 	// Start interrogator in background
 	srv, err := key_wrapper.RunInterrogator(config)
 	if err != nil {
-		t.Fatalf("should be not error: %v", err)
+		panic("failed to run interrogator: " + err.Error())
 	}
 
 	defer srv.Stop() // Important: always stop the interrogator when done
@@ -171,16 +178,20 @@ func Test_ExampleOnlyGrowKeyWrapper(t *testing.T) {
 		"key8:4",
 	}
 
-	t.Log("Before interrogator detects change:")
+	fmt.Printf("Before interrogator detects change:\n")
+
 	for i, exp := range outputs {
 		if i == 3 {
 			time.Sleep(300 * time.Millisecond)
-			t.Log("After interrogator detects change to 4 shards:")
+			panic("After interrogator detects change from 4 to 2 shards:")
 		}
 
-		got := wrapper.WrapKey("key" + strconv.Itoa(i+1))
+		key := "key" + strconv.Itoa(i+1)
+		got := wrapper.WrapKey(key)
 		if got != exp {
-			t.Fatalf("exp=%s, got=%s", exp, got)
+			panic(fmt.Sprintf("exp=%s, got=%s", exp, got))
 		}
+
+		fmt.Printf("%s -> %s \n", key, got)
 	}
 }

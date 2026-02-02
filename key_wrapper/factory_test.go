@@ -19,7 +19,7 @@ func TestFactory(t *testing.T) {
 	}
 
 	if f.shardsCount != shardsCount {
-		t.Fatal("getCount invalid")
+		t.Fatal("shardsCount invalid")
 	}
 
 	if f.onlyGrowingWrappers == nil {

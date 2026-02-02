@@ -16,8 +16,8 @@ type Interrogator struct {
 }
 
 // RunInterrogator starts a new interrogator with the given configuration.
-// It runs the interrogator in a separate goroutine and returns a function to stop it.
-// The returned stop function should be called when the interrogator is no longer needed
+// It runs the interrogator in a separate goroutine and returns an Interrogator instance.
+// The returned Interrogator should be stopped using Stop() or StopWithContext() when no longer needed
 // to prevent goroutine leaks.
 func RunInterrogator(cfg *Config) (*Interrogator, error) {
 	if err := cfg.Validate(); err != nil {
@@ -47,6 +47,10 @@ func (l *Interrogator) Stop() {
 	l.wg.Wait()
 }
 
+// StopWithContext gracefully stops the interrogator with a timeout.
+// It returns an error if the context is canceled before the interrogator stops.
+// This method is useful when you need to ensure the interrogator stops within a specific timeframe.
+// It's safe to call this method multiple times.
 func (l *Interrogator) StopWithContext(ctx context.Context) error {
 	if l.cancel == nil {
 		return nil // already stopped
@@ -69,6 +73,9 @@ func (l *Interrogator) StopWithContext(ctx context.Context) error {
 	}
 }
 
+// run is the main loop of the interrogator that runs in a separate goroutine.
+// It periodically checks for shard count changes using the configured interval
+// and stops when the context is canceled.
 func (l *Interrogator) run(ctx context.Context, cfg *Config) {
 	defer l.wg.Done()
 
@@ -85,6 +92,9 @@ func (l *Interrogator) run(ctx context.Context, cfg *Config) {
 	}
 }
 
+// checkAndUpdate performs a single check for shard count changes.
+// It calls the configured GetShardsCount function and updates the factory if needed.
+// Any errors from GetShardsCount or factory update are passed to the ErrorHandler.
 func (l *Interrogator) checkAndUpdate(cfg *Config) {
 	count, err := cfg.GetShardsCount()
 	if err != nil {

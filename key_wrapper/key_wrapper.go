@@ -25,20 +25,26 @@ type WrapperFactory interface {
 	// MakeOnlyGrowingKeyWrapper creates a new KeyWrapper that will only
 	// be updated when the factory's shard count increases.
 	MakeOnlyGrowingKeyWrapper() KeyWrapper
-	// GetStats returns current statistics about the factory, including
+	// Stats returns current statistics about the factory, including
 	// the number of shards and registered wrappers.
 	Stats() FactoryStats
 }
 
+// Compile-time interface compliance checks
 var _ KeyWrapper = (*keyWrapper)(nil)
 var _ WrapperFactory = (*Factory)(nil)
 
+// keyWrapper is the concrete implementation of KeyWrapper interface.
+// It maintains an internal counter (i) and current shard count to generate
+// cyclic postfixes for even key distribution across shards.
 type keyWrapper struct {
-	mu          sync.Mutex
-	i           int
-	shardsCount int
+	mu          sync.Mutex // protects i and shardsCount from concurrent access
+	i           int        // current position in the cycle (1 to shardsCount)
+	shardsCount int        // total number of shards for distribution
 }
 
+// newKeyWrapper creates a new keyWrapper instance with the specified shard count.
+// The wrapper starts with counter at 0 and will generate postfixes starting from ":1".
 func newKeyWrapper(count int) *keyWrapper {
 	w := &keyWrapper{}
 	w.setCount(count)
@@ -54,6 +60,8 @@ func (b *keyWrapper) ResetShardsCount(count int) {
 	b.setCount(count)
 }
 
+// setCount updates the shard count in a thread-safe manner.
+// This method doesn't reset the counter position to maintain distribution consistency.
 func (b *keyWrapper) setCount(count int) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -61,6 +69,10 @@ func (b *keyWrapper) setCount(count int) {
 	b.shardsCount = count
 }
 
+// makePostfix generates the next shard postfix in the cycle.
+// For single shard (shardsCount <= 1), it always returns ":1".
+// For multiple shards, it increments the counter and wraps around when necessary.
+// This method is thread-safe and ensures even distribution.
 func (b *keyWrapper) makePostfix() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
