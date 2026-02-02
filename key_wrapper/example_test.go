@@ -12,7 +12,10 @@ import (
 // Test_Example demonstrates basic usage of the key_wrapper library
 func TestExample(t *testing.T) {
 	// Create factory with 3 shards
-	factory := key_wrapper.NewFactory(3)
+	factory, err := key_wrapper.NewFactory(3)
+	if err != nil {
+		t.Fatalf("failed to create factory: %v", err)
+	}
 
 	// Create a key wrapper
 	wrapper := factory.MakeKeyWrapper()
@@ -45,7 +48,10 @@ func Test_ExampleKeyWrapper(t *testing.T) {
 		updatedShards = 4
 	)
 
-	factory := key_wrapper.NewFactory(initialShards)
+	factory, err := key_wrapper.NewFactory(initialShards)
+	if err != nil {
+		t.Fatalf("failed to create factory: %v", err)
+	}
 
 	// Mock function that returns current shard count
 	// In real usage, this would query your infrastructure
@@ -64,11 +70,18 @@ func Test_ExampleKeyWrapper(t *testing.T) {
 		GetShardsCount: getCurrentShards,
 		Factory:        factory,
 		Interval:       100 * time.Millisecond, // Check every 100ms for demo
+		ErrorHandler: func(err error) {
+			t.Fatal("error in interrogator: ", err)
+		},
 	}
 
 	// Start interrogator in background
-	stopFunc := key_wrapper.RunInterrogator(config)
-	defer stopFunc() // Important: always stop the interrogator when done
+	srv, err := key_wrapper.RunInterrogator(config)
+	if err != nil {
+		t.Fatalf("should be not error: %v", err)
+	}
+
+	defer srv.Stop() // Important: always stop the interrogator when done
 
 	// Create wrapper
 	wrapper := factory.MakeKeyWrapper()
@@ -105,7 +118,10 @@ func Test_ExampleOnlyGrowKeyWrapper(t *testing.T) {
 		updatedShards = 2
 	)
 
-	factory := key_wrapper.NewFactory(initialShards)
+	factory, err := key_wrapper.NewFactory(initialShards)
+	if err != nil {
+		t.Fatalf("should be not error: %v", err)
+	}
 
 	// Mock function that returns current shard count
 	// In real usage, this would query your infrastructure
@@ -125,11 +141,18 @@ func Test_ExampleOnlyGrowKeyWrapper(t *testing.T) {
 		GetShardsCount: getCurrentShards,
 		Factory:        factory,
 		Interval:       100 * time.Millisecond, // Check every 100ms for demo
+		ErrorHandler: func(err error) {
+			t.Fatal("error in interrogator:", err)
+		},
 	}
 
 	// Start interrogator in background
-	stopFunc := key_wrapper.RunInterrogator(config)
-	defer stopFunc() // Important: always stop the interrogator when done
+	srv, err := key_wrapper.RunInterrogator(config)
+	if err != nil {
+		t.Fatalf("should be not error: %v", err)
+	}
+
+	defer srv.Stop() // Important: always stop the interrogator when done
 
 	// Create wrapper
 	wrapper := factory.MakeOnlyGrowingKeyWrapper()

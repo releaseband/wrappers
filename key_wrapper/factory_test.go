@@ -2,27 +2,32 @@ package key_wrapper
 
 import (
 	"strconv"
+	"sync"
 	"testing"
 )
 
 func TestFactory(t *testing.T) {
 	const shardsCount = 4
-	f := NewFactory(shardsCount)
+
+	f, err := NewFactory(shardsCount)
+	if err != nil {
+		t.Fatalf("failed to create factory: %v", err)
+	}
+
 	if f.shardsCount != shardsCount {
 		t.Fatal("shardsCount invalid")
 	}
 
-	count := f.getCount()
-	if count != shardsCount {
+	if f.shardsCount != shardsCount {
 		t.Fatal("getCount invalid")
 	}
 
-	if f.onlyGrowingWrappers != nil {
-		t.Fatal("onlyGrowingWrappers should be nil")
+	if f.onlyGrowingWrappers == nil {
+		t.Fatal("onlyGrowingWrappers should not be nil")
 	}
 
-	if f.generalWrappers != nil {
-		t.Fatal("generalWrappers should be nil")
+	if f.generalWrappers == nil {
+		t.Fatal("generalWrappers should not be nil")
 	}
 
 	generalWrappers := make([]KeyWrapper, 6)
@@ -38,10 +43,6 @@ func TestFactory(t *testing.T) {
 		t.Fatal("generalWrappers.wrappers len should be 6")
 	}
 
-	if f.onlyGrowingWrappers != nil {
-		t.Fatal("onlyGrowingWrappers should be nil")
-	}
-
 	onlyGrowingWrappers := make([]KeyWrapper, 3)
 	for i := 0; i < 3; i++ {
 		onlyGrowingWrappers[i] = f.MakeOnlyGrowingKeyWrapper()
@@ -51,15 +52,12 @@ func TestFactory(t *testing.T) {
 		t.Fatal("generalWrappers.wrappers len should be 6")
 	}
 
-	if f.onlyGrowingWrappers == nil {
-		t.Fatal("onlyGrowingWrappers should not be nil")
-	}
-
 	if len(f.onlyGrowingWrappers.wrappers) != 3 {
 		t.Fatal("onlyGrowingWrappers.wrappers len should be 3")
 	}
 
-	f.updateShardsCount(shardsCount - 1)
+	f.compareAndUpdate(shardsCount - 1)
+
 	const key = "KEY"
 	expKey := key + ":1"
 
@@ -85,4 +83,31 @@ func TestFactory(t *testing.T) {
 			t.Fatalf("gotKey(%s) != expKey(%s)", gotKey, expKey)
 		}
 	}
+}
+
+func BenchmarkWrapKey(b *testing.B) {
+	factory, _ := NewFactory(10)
+	wrapper := factory.MakeKeyWrapper()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		wrapper.WrapKey("testkey")
+	}
+}
+
+func TestConcurrentAccess(t *testing.T) {
+	factory, _ := NewFactory(5)
+	wrapper := factory.MakeKeyWrapper()
+
+	count := 100
+	wg := sync.WaitGroup{}
+	wg.Add(count)
+
+	for i := 0; i < count; i++ {
+		go func() {
+			defer wg.Done()
+			wrapper.WrapKey("test")
+		}()
+	}
+	wg.Wait()
 }

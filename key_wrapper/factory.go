@@ -1,44 +1,62 @@
 package key_wrapper
 
 import (
+	"fmt"
 	"sync"
 )
-
-// KeyWrapper provides functionality to wrap keys with shard postfixes.
-// It automatically distributes keys across multiple shards by appending
-// postfixes like ":1", ":2", etc.
-type KeyWrapper interface {
-	// WrapKey takes a base key and returns it with an appropriate shard postfix.
-	// The postfix is determined by the current shard count and internal counter.
-	WrapKey(key string) string
-}
 
 // Factory creates and manages KeyWrapper instances.
 // It maintains two types of wrappers: general wrappers that update on any shard count change,
 // and only-growing wrappers that only update when shard count increases.
+// Factory ensures thread-safe operations and shard count management.
 type Factory struct {
+	mu                  *sync.RWMutex
 	generalWrappers     *store
 	onlyGrowingWrappers *store
-	mu                  *sync.RWMutex
 	shardsCount         int
 }
+
+type FactoryStats struct {
+	Shards          int
+	GeneralWrappers int
+	GrowingWrappers int
+}
+
+const (
+	minShardsCount = 1
+	maxShardsCount = 10_000
+)
 
 // NewFactory creates a new Factory with the specified initial shard count.
 // The shard count determines how many different postfixes will be used
 // when wrapping keys (e.g., ":1", ":2", ":3" for shardsCount=3).
-func NewFactory(shardsCount int) *Factory {
-	return &Factory{
-		mu:          &sync.RWMutex{},
-		shardsCount: shardsCount,
-		//initialized lazily to avoid unnecessary allocations
-		onlyGrowingWrappers: nil,
-		//initialized lazily to avoid unnecessary allocations
-		generalWrappers: nil,
+// An error is returned if the initial shard count is
+// less than 1 and greater than 10_000
+func NewFactory(initialShardsCount int) (*Factory, error) {
+	if err := validateShardsCount(initialShardsCount); err != nil {
+		return nil, err
 	}
+
+	return &Factory{
+		mu:                  &sync.RWMutex{},
+		onlyGrowingWrappers: newStore(),
+		generalWrappers:     newStore(),
+		shardsCount:         initialShardsCount,
+	}, nil
 }
 
-func (f *Factory) makeKeyWrapper() *keyWrapper {
-	return newKeyWrapper(f.shardsCount)
+func validateShardsCount(count int) error {
+	if count < minShardsCount {
+		return fmt.Errorf("initial shards count must be positive, got %d",
+			count)
+	}
+
+	if count > maxShardsCount {
+		return fmt.Errorf("initial shards count must be less than %d, got %d",
+			maxShardsCount, count)
+	}
+
+	return nil
 }
 
 // MakeKeyWrapper creates a new KeyWrapper that will be updated whenever
@@ -46,12 +64,10 @@ func (f *Factory) makeKeyWrapper() *keyWrapper {
 // The returned wrapper is registered with the factory and will automatically
 // receive shard count updates.
 func (f *Factory) MakeKeyWrapper() KeyWrapper {
-	w := f.makeKeyWrapper()
+	f.mu.Lock()
+	defer f.mu.Unlock()
 
-	if f.generalWrappers == nil {
-		f.generalWrappers = newStore()
-	}
-
+	w := newKeyWrapper(f.shardsCount)
 	f.generalWrappers.add(w)
 
 	return w
@@ -62,43 +78,47 @@ func (f *Factory) MakeKeyWrapper() KeyWrapper {
 // This is useful for scenarios where reducing shard count should not affect
 // existing key distribution patterns.
 func (f *Factory) MakeOnlyGrowingKeyWrapper() KeyWrapper {
-	w := f.makeKeyWrapper()
+	f.mu.Lock()
+	defer f.mu.Unlock()
 
-	if f.onlyGrowingWrappers == nil {
-		f.onlyGrowingWrappers = newStore()
-	}
-
+	w := newKeyWrapper(f.shardsCount)
 	f.onlyGrowingWrappers.add(w)
 
 	return w
 }
 
-func (f *Factory) getCount() int {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
-	return f.shardsCount
-}
+func (f *Factory) compareAndUpdate(shardCount int) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 
-func (f *Factory) updateShardsCount(shardCount int) {
-	if shardCount == f.getCount() {
-		return
+	if shardCount == f.shardsCount {
+		// No change in shard count
+		return nil
 	}
 
-	var decreased bool
+	err := validateShardsCount(shardCount)
+	if err != nil {
+		return err
+	}
 
-	f.mu.Lock()
-	if shardCount < f.shardsCount {
-		decreased = true
+	f.generalWrappers.update(shardCount)
+
+	if shardCount > f.shardsCount {
+		f.onlyGrowingWrappers.update(shardCount)
 	}
 
 	f.shardsCount = shardCount
-	f.mu.Unlock()
 
-	if f.generalWrappers != nil {
-		f.generalWrappers.update(shardCount)
-	}
+	return nil
+}
 
-	if !decreased && f.onlyGrowingWrappers != nil {
-		f.onlyGrowingWrappers.update(shardCount)
+func (f *Factory) Stats() FactoryStats {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	return FactoryStats{
+		Shards:          f.shardsCount,
+		GeneralWrappers: len(f.generalWrappers.wrappers),
+		GrowingWrappers: len(f.onlyGrowingWrappers.wrappers),
 	}
 }

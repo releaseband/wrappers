@@ -2,19 +2,41 @@ package key_wrapper
 
 import (
 	"strconv"
+	"sync"
 )
 
 const (
 	defaultPostfix = ":1"
 )
 
-type keyWrapper struct {
-	i           int
-	shardsCount int
+// KeyWrapper provides functionality to wrap keys with shard postfixes.
+// It automatically distributes keys across multiple shards by appending
+// postfixes like ":1", ":2", etc.
+type KeyWrapper interface {
+	// WrapKey takes a base key and returns it with an appropriate shard postfix.
+	// The postfix is determined by the current shard count and internal counter.
+	WrapKey(key string) string
 }
 
-func (b *keyWrapper) setCount(count int) {
-	b.shardsCount = count
+type WrapperFactory interface {
+	// MakeKeyWrapper creates a new KeyWrapper that will be updated whenever
+	// the factory's shard count changes (both increases and decreases).
+	MakeKeyWrapper() KeyWrapper
+	// MakeOnlyGrowingKeyWrapper creates a new KeyWrapper that will only
+	// be updated when the factory's shard count increases.
+	MakeOnlyGrowingKeyWrapper() KeyWrapper
+	// GetStats returns current statistics about the factory, including
+	// the number of shards and registered wrappers.
+	Stats() FactoryStats
+}
+
+var _ KeyWrapper = (*keyWrapper)(nil)
+var _ WrapperFactory = (*Factory)(nil)
+
+type keyWrapper struct {
+	mu          sync.Mutex
+	i           int
+	shardsCount int
 }
 
 func newKeyWrapper(count int) *keyWrapper {
@@ -32,19 +54,23 @@ func (b *keyWrapper) ResetShardsCount(count int) {
 	b.setCount(count)
 }
 
-func (b *keyWrapper) incrementI() int {
-	b.i++
+func (b *keyWrapper) setCount(count int) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
-	if b.i > b.shardsCount {
-		b.i = 1
-	}
-
-	return b.i
+	b.shardsCount = count
 }
 
 func (b *keyWrapper) makePostfix() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	if b.shardsCount > 1 {
-		return ":" + strconv.Itoa(b.incrementI())
+		b.i++
+		if b.i > b.shardsCount {
+			b.i = 1
+		}
+		return ":" + strconv.Itoa(b.i)
 	}
 
 	return defaultPostfix
