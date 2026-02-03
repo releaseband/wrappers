@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/releaseband/wrappers/key_wrapper"
+	"github.com/releaseband/wrappers/v2/key_wrapper"
 )
 
 // Example demonstrates basic usage of the key_wrapper library

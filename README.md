@@ -22,7 +22,7 @@ package main
 import (
     "log"
     "time"
-    "github.com/releaseband/wrappers/key_wrapper"
+    "github.com/releaseband/wrappers/v2/key_wrapper"
 )
 
 func main() {
