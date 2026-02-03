@@ -117,7 +117,7 @@ func ExampleUpdateShards() {
 	}
 }
 
-// Test_ExampleOnlyGrowKeyWrapper demonstrates usage of only-growing key wrappers
+// ExampleOnlyGrowKeyWrapper demonstrates usage of only-growing key wrappers
 func ExampleOnlyGrowKeyWrapper() {
 	// Create factory
 	const (
@@ -183,13 +183,13 @@ func ExampleOnlyGrowKeyWrapper() {
 	for i, exp := range outputs {
 		if i == 3 {
 			time.Sleep(300 * time.Millisecond)
-			panic("After interrogator detects change from 4 to 2 shards:")
+			fmt.Println("After interrogator detects change from 4 to 2 shards:")
 		}
 
 		key := "key" + strconv.Itoa(i+1)
 		got := wrapper.WrapKey(key)
 		if got != exp {
-			panic(fmt.Sprintf("exp=%s, got=%s", exp, got))
+			fmt.Printf("exp=%s, got=%s\n", exp, got)
 		}
 
 		fmt.Printf("%s -> %s \n", key, got)
