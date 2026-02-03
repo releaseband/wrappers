@@ -1,3 +1,3 @@
-module github.com/releaseband/wrappers
+module github.com/releaseband/wrappers/v2
 
 go 1.15
